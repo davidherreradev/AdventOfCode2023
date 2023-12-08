@@ -15,7 +15,7 @@ function createCard(line) {
     card.winningNumbers = line.match(/(?<=:\s)[^|]+(?=\s\|)/)[0].trim().split(/\s+/).map(Number);
     card.numbers = line.match(/(?<=\|\s).+/)[0].trim().split(/\s+/).map(Number);
     card.matches = findMatches(card);
-    card.points = pointsFromMatches(card.matches)
+    card.points = calcPoints(card.matches)
     return card;
 }
 
@@ -46,37 +46,27 @@ function findCopies(cards, cardId) {
     return totalCopies;
 }
 
-function pointsFromMatches(matches) {
+function calcPoints(matches) {
 
-    let points = matches > 0 ? 1 : 0;
-    
-    for (let i = 1; i < matches; i++) {
-        points *= 2;
-    }
-
-    return points;
+    return matches > 0 ? (1 << (matches - 1)) : 0;
 }
 
-function part1(card) {
-    let points = card.points;
-    return solution1 += points;
-}
-
-function part2(cards) {
+function totalCardAmount(cards) {
     const totalCopies = cards.reduce((total, card) => total + card.copies, 0);
     return solution2 = cards.length + totalCopies;
 }
 
 lines.forEach((line) => {
     let card = createCard(line);
-    part1(card);
+    solution1 += card.points;
     cards.push(card);
 });
 
 cards.forEach(card => {
     card.copies = findCopies(cards, card.id);
-    part2(cards);
 });
+
+totalCardAmount(cards);
 
 console.log("Solution 1: ", solution1);
 console.log("Solution 2: ", solution2);
