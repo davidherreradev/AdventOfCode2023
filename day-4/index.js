@@ -11,7 +11,7 @@ let solution2 = 0;
 
 function createCard(line) {
     let card = {};
-    card.id = parseInt(line.match(/(?!\Card)\d+(?=:)/g));
+    card.id = parseInt(line.match(/(?!\Card)\d+(?=:)/));
     card.winningNumbers = line.match(/(?<=:\s)[^|]+(?=\s\|)/)[0].trim().split(/\s+/).map(Number);
     card.numbers = line.match(/(?<=\|\s).+/)[0].trim().split(/\s+/).map(Number);
     card.matches = findMatches(card);
