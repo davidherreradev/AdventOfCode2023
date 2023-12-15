@@ -3,17 +3,17 @@ import fs from 'fs';
 const hands = fs.readFileSync('./input.txt', 'utf8').split('\r\n')
                 .map((hand) => {
                     const [cards, bid] = hand.split(' ');
-                    return [cards.split(''), bid];
+                    return [cards.split(''), parseInt(bid)];
                 });
 
 const types = ['high card', 'one pair', 'two pair', 'three of a kind', 'full house', 'four of a kind', 'five of a kind'];
 
-function getMatches([cards]) {
+function getMatches(cards) {
     const counts = cards.reduce((acc, card) => ({ ...acc, [card]: (acc[card] || 0) + 1 }), {});
     return Object.entries(counts).filter(([card, count]) => count > 1).map(([card, count]) => ({ card, count }));
 }
 
-function assignType([cards, bid, matches]) {
+function assignType(cards, matches) {
     const totalMatches = matches.reduce((total, { count }) => total + count, 0);
     let type;
 
@@ -36,7 +36,10 @@ function assignType([cards, bid, matches]) {
     return type;
 }
 
-function getCardValue(card) {
+function getCardValue(card, isPart2 = false) {
+    if (isPart2 && card === 'J') {
+        return 1;
+    }
     return ' TJQKA'.indexOf(card) > 0 ? ' TJQKA'.indexOf(card) + 9 : parseInt(card);
 }
 
@@ -44,79 +47,65 @@ function getRank(type) {
     return types.indexOf(type) + 1;
 }
 
-function rank(hands, part1, part2) {
+function rank(hands, isPart2 = false) {
     return hands.sort((hand1, hand2) => {
-        let rank1 = getRank(hand1[3]);
-        let rank2 = getRank(hand2[3]);
+        let rank1 = getRank(hand1[2]);
+        let rank2 = getRank(hand2[2]);
 
         if (rank1 === rank2) {
             for (let i = 0; i < hand1[0].length; i++) {
-                let value1 = getCardValue(hand1[0][i]);
-                let value2 = getCardValue(hand2[0][i]);
+                let value1 = getCardValue(hand1[0][i], isPart2); // compare replaced card values by default
+                let value2 = getCardValue(hand2[0][i], isPart2); // compare replaced card values by default
+
+                if (hand1[3] && hand2[3]) {
+                    // if original card values are available, use them for comparison
+                    value1 = getCardValue(hand1[3][i], isPart2);
+                    value2 = getCardValue(hand2[3][i], isPart2);
+                }
 
                 if (value1 !== value2) {
-                    return value1 - value2;
+                    return value2 - value1;
                 }
             }
         }
 
-        return rank1 - rank2;
+        return rank2 - rank1;
     });
 }
 
-function getBestHand(hand) {
-    const cards = [...hand[0]];
-    const wildCardIndices = cards.reduce((indices, card, index) => {
-        if (card === 'J') indices.push(index);
-        return indices;
-    }, []);
+function wildCardReRank(rankedHands) {
+    const updatedHands = rankedHands.map(([cards, bid, type]) => {
+        const originalCards = [...cards];
+        const counts = cards.reduce((acc, card) => ({ ...acc, [card]: (acc[card] || 0) + 1 }), {});
+        delete counts['J']; // remove Jokers from counts
+        const mostOccurringCard = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, '2'); // default to '2' if no other cards
 
-    if (wildCardIndices.length === 0) {
-        return hand;
-    }
+        const updatedCards = cards.map(card => card === 'J' ? mostOccurringCard : card);
+        const updatedType = assignType(updatedCards, getMatches(updatedCards));
 
-    let bestHand = null;
-    let bestType = null;
-
-    const possibleCards = 'A23456789TJQK';
-    const combinations = Math.pow(possibleCards.length, wildCardIndices.length);
-
-    for (let i = 0; i < combinations; i++) {
-        let combination = i;
-        for (let j = 0; j < wildCardIndices.length; j++) {
-            cards[wildCardIndices[j]] = possibleCards[combination % possibleCards.length];
-            combination = Math.floor(combination / possibleCards.length);
-        }
-
-        const matches = getMatches([cards]);
-        const type = assignType([cards, hand[1], matches]);
-        if (!bestType || getRank(type) > getRank(bestType)) {
-            bestHand = [cards, hand[1], matches, type];
-            bestType = type;
-        }
-    }
-
-    return bestHand;
-}
-
-function part1(hands) {
-    const handsWithMatchesAndTypes = hands.map(hand => {
-        const matches = getMatches(hand);
-        return [...hand, matches, assignType([...hand, matches])];
+        return [updatedCards, bid, updatedType, originalCards]; // include original card values
     });
-    const rankedHands = rank(handsWithMatchesAndTypes, true);
-    return rankedHands.reduce((solution, [cards, bid], i) => solution + parseInt(bid) * (i + 1), 0);
+
+    const reRankedHands = rank(updatedHands, true);
+
+    return reRankedHands;
 }
 
-function part2(hands) {
-    const handsWithMatchesAndTypes = hands.map(hand => {
-        const bestHand = getBestHand(hand);
-        const matches = getMatches(bestHand);
-        return [...bestHand, matches, assignType([...bestHand, matches])];
-    });
-    const rankedHands = rank(handsWithMatchesAndTypes, false, true);
-    return rankedHands.reduce((solution, [cards, bid], i) => solution + parseInt(bid) * (i + 1), 0);
+// Part 1
+function part1() {
+    const handsWithMatches = hands.map(hand => [hand[0], hand[1], assignType(hand[0], getMatches(hand[0]))]);
+    const rankedHands = rank(handsWithMatches);
+    const totalWinningsPart = rankedHands.reduce((total, hand, index) => total + hand[1] * (rankedHands.length - index), 0);
+    return console.log('Part 1:', totalWinningsPart);
 }
 
-console.log('Solution 1: ' + part1(hands));
-console.log('Solution 2: ' + part2(hands));
+function part2() {
+    const handsWithMatches = hands.map(hand => [hand[0], hand[1], assignType(hand[0], getMatches(hand[0]))]);
+    const rankedHands = rank(handsWithMatches);
+    const reRankedHands = wildCardReRank(rankedHands);
+    const totalWinningsPart = reRankedHands.reduce((total, hand, index) => total + hand[1] * (reRankedHands.length - index), 0);
+    return console.log('Part 2:', totalWinningsPart);
+}
+
+part1();
+part2();
